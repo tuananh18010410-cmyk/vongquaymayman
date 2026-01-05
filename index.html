@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Vong quay may man</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+body {
+  margin: 0;
+  font-family: "Be Vietnam Pro", Arial, sans-serif;
+  background: url("avatar.png") no-repeat center center fixed;
+  background-size: cover;
+  text-align: center;
+  padding-top: 20px;
+}
+
+/* lop phu de de nhin */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,0.35);
+  z-index: -1;
+}
+
+h3 {
+  margin-top: 10px;
+}
+
+input, button {
+  padding: 10px;
+  font-size: 16px;
+  margin-top: 10px;
+}
+
+button {
+  cursor: pointer;
+}
+
+#pointer {
+  width: 0;
+  height: 0;
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  border-top: 26px solid red;
+  margin: 10px auto;
+}
+
+#wheel-box {
+  width: 300px;
+  height: 300px;
+  margin: 0 auto;
+}
+
+canvas {
+  display: block;
+}
+
+#result {
+  font-weight: 600;
+  margin-top: 12px;
+}
+</style>
+</head>
+
+<body>
+
+<h3>VONG QUAY MAY MAN</h3>
+
+<input id="phone" placeholder="Nhap so dien thoai"><br>
+<button id="spinBtn">QUAY</button>
+
+<div id="pointer"></div>
+
+<div id="wheel-box">
+  <canvas id="wheel" width="300" height="300"></canvas>
+</div>
+
+<p id="result"></p>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbyqn1nu8BaX7_9a3W6Fb5aFfx82YQG86Mq_T0SWDtIbNBYrarJjqyt-sQBZ0S3IpMWI/exec";
+
+const rewards = [
+  "Giam 5%",
+  "Voucher 500k",
+  "Moc khoa Jifuko",
+  "Giam 10%",
+  "Chuc ban may man"
+];
+
+const canvas = document.getElementById("wheel");
+const ctx = canvas.getContext("2d");
+const spinBtn = document.getElementById("spinBtn");
+const result = document.getElementById("result");
+
+const size = canvas.width;
+const center = size / 2;
+const borderWidth = 6;
+const radius = center - borderWidth / 2;
+const sliceAngle = (2 * Math.PI) / rewards.length;
+
+let currentAngle = 0;
+let isSpinning = false;
+
+/* VE VONG QUAY KHIT */
+function drawWheel() {
+  ctx.clearRect(0, 0, size, size);
+
+  rewards.forEach((text, i) => {
+    const start = currentAngle + i * sliceAngle;
+    const end = start + sliceAngle;
+
+    ctx.beginPath();
+    ctx.moveTo(center, center);
+    ctx.arc(center, center, radius, start, end);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? "#FFD54F" : "#FFB74D";
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(center, center);
+    ctx.rotate(start + sliceAngle / 2);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#000";
+    ctx.font = "600 14px Be Vietnam Pro";
+    ctx.fillText(text, radius - 16, 5);
+    ctx.restore();
+  });
+
+  ctx.beginPath();
+  ctx.arc(center, center, radius, 0, 2 * Math.PI);
+  ctx.lineWidth = borderWidth;
+  ctx.strokeStyle = "#333";
+  ctx.stroke();
+}
+
+drawWheel();
+
+/* QUAY + TINH THUONG CHUAN */
+spinBtn.onclick = () => {
+  if (isSpinning) return;
+
+  const phone = document.getElementById("phone").value.trim();
+  if (phone.length < 9) {
+    alert("Nhap so dien thoai dung");
+    return;
+  }
+
+  isSpinning = true;
+  spinBtn.disabled = true;
+  result.innerText = "Dang kiem tra...";
+
+  fetch(API + "?phone=" + phone)
+    .then(res => res.text())
+    .then(data => {
+      if (data === "EXIST") {
+        alert("So nay da quay roi");
+        isSpinning = false;
+        spinBtn.disabled = false;
+        return;
+      }
+
+      const spinRad = (Math.random() * 360 + 360 * 5) * Math.PI / 180;
+      const startAngle = currentAngle;
+      const duration = 3000;
+      const startTime = performance.now();
+
+      function animate(now) {
+        const progress = Math.min((now - startTime) / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
+
+        currentAngle = startAngle + spinRad * ease;
+        drawWheel();
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          let pointerAngle = -currentAngle - Math.PI / 2;
+          pointerAngle = (pointerAngle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+
+          const index = Math.floor(pointerAngle / sliceAngle);
+          const prize = rewards[index];
+
+          result.innerText = "Ban trung: " + prize;
+
+          fetch(API, {
+            method: "POST",
+            body: new URLSearchParams({
+              phone: phone,
+              result: prize
+            })
+          });
+
+          isSpinning = false;
+          spinBtn.disabled = false;
+        }
+      }
+
+      requestAnimationFrame(animate);
+    })
+    .catch(() => {
+      alert("Loi ket noi API");
+      isSpinning = false;
+      spinBtn.disabled = false;
+    });
+};
+</script>
+
+</body>
+</html>
